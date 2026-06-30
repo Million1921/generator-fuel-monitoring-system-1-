@@ -1,0 +1,216 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String       @id @default(cuid())
+  email             String       @unique
+  name              String?
+  emailVerified     Boolean      @default(false)
+  image             String?
+  password          String?      // Optional for better-auth if using Account table, but keeping for compatibility
+  role              Role         @default(TECHNICIAN)
+  technicianProfile Technician?
+  sessions          Session[]
+  accounts          Account[]
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+enum Role {
+  ADMIN
+  TECHNICIAN
+  MANAGER
+  SUPERVISOR
+  FINANCE
+}
+
+model Region {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  sites       Site[]
+  technicians Technician[]
+}
+
+model Site {
+  id               Int      @id @default(autoincrement())
+  siteId           String   @unique // External ID (e.g. "111006")
+  name             String
+  tankerCapacity   Float?
+  dgCapacity       String?
+  dgType           String?
+  gpsCoordinates   String?
+  region           String?  // The app expects a 'region' field string in some places
+  installationDate DateTime?
+  regionModel      Region?  @relation(fields: [regionId], references: [id])
+  regionId         Int?
+  generator        Generator?
+  fuelRefills      FuelRefill[]
+  fuelRequests     FuelRequest[]
+  transactions     Transaction[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Generator {
+  id                 Int      @id @default(autoincrement())
+  genId              String   @unique
+  model              String?
+  capacity           String?
+  capacityKVA        Float?   @default(0)
+  stdFuelConsumption Float?   @default(0) // Renamed from stdConsumption
+  serialNumber       String?
+  lastRunningHours   Float?   @default(0) // Renamed from currentRunningHour
+  installationDate   DateTime?
+  displayHistory     String?
+  site               Site     @relation(fields: [siteId], references: [id])
+  siteId             Int      @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Technician {
+  id           Int      @id @default(autoincrement())
+  userId       String?  @unique
+  user         User?    @relation(fields: [userId], references: [id])
+  name         String?
+  department   String?
+  regionId     Int?
+  region       Region?  @relation(fields: [regionId], references: [id])
+  phone        String?
+  email        String?
+  fuelRequests FuelRequest[]
+  fuelRefills  FuelRefill[]
+  transactions Transaction[]
+}
+
+model FuelRequest {
+  id                Int      @id @default(autoincrement())
+  workRequestNumber String?  @unique
+  workOrderNumber   String?  @unique
+  status            String   @default("PENDING") // e.g., COMPLETED, PENDING_SUPERVISOR, etc.
+  priority          String?  // e.g., EMERGENCY, URGENT, HIGH
+  actualRefueled    Float?   @default(0)
+  literRequired     Float?
+  requestedAmount   Float?
+  site              Site     @relation(fields: [siteId], references: [id])
+  siteId            Int
+  technician        Technician? @relation(fields: [technicianId], references: [id])
+  technicianId      Int?
+  supervisorId      Int?
+  managerId         Int?
+  submittedAt       DateTime @default(now())
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  rejectionReason   String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  fuelRefill        FuelRefill?
+}
+
+model FuelRefill {
+  id             Int      @id @default(autoincrement())
+  refillDate     DateTime @default(now())
+  fuelDelivered  Float
+  beforeLevel    Float
+  afterLevel     Float
+  beforeHours    Float
+  afterHours     Float
+  tankerVehicle  String?
+  driverName     String?
+  driverId       String?
+  technicianName String?
+  technicianIdStr String?
+  employmentType String?
+  
+  site           Site     @relation(fields: [siteId], references: [id])
+  siteId         Int
+  technician     Technician? @relation(fields: [technicianId], references: [id])
+  technicianId   Int?
+  
+  fuelRequestId  Int?         @unique
+  fuelRequest    FuelRequest? @relation(fields: [fuelRequestId], references: [id])
+  
+  workOrderNumber String?
+  unitPrice       Float?       @default(0)
+  
+  createdAt      DateTime     @default(now())
+}
+
+model Transaction {
+  id                Int      @id @default(autoincrement())
+  receiptNo         String?  @unique
+  senderAccount     String?
+  receiverAccount   String?
+  paidAmount        Float?   @default(0)
+  senderAmount      Float?   @default(0)
+  payerName         String?
+  location          String?
+  fuelStation       String?
+  fuelType          String   @default("Diesel")
+  type              String   // e.g., BARREL, DIRECT, etc.
+  remark            String?
+  errors            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  siteId            Int?
+  site              Site?    @relation(fields: [siteId], references: [id])
+  technicianId      Int?
+  technician        Technician? @relation(fields: [technicianId], references: [id])
+}

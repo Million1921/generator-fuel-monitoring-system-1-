@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#84cc16;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4d7c0f;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#grad)" />
+  <!-- Fuel/Energy icon (Drop with Lightning) -->
+  <path d="M256 100 
+           C256 100 130 250 130 330 
+           C130 400 186.7 456 256 456 
+           C325.3 456 382 400 382 330 
+           C382 250 256 100 256 100 Z" 
+        fill="#ffffff" />
+  <path d="M276 220 L216 310 H266 L236 410 L316 290 H256 L276 220 Z" fill="#84cc16" />
+</svg>

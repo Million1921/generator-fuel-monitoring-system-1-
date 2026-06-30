@@ -1,0 +1,317 @@
+"use client"
+
+import { Trash2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { TableColumnHeader } from "@/components/ui/table-column-header"
+import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
+import { useTransition } from "react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Pagination } from "@/components/ui/Pagination"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
+import { approveToManager, approveToAdmin, createWorkOrder, deleteFuelRequest } from "@/features/fuel-requests/actions"
+import { useUser } from "@clerk/nextjs"
+
+interface FuelRequestTableProps {
+  requests: any[]
+  title: string
+  total: number
+  page: number
+  totalPages: number
+  region?: string
+  actionType?: 'supervisor' | 'admin'
+  sortBy?: string
+  sortOrder?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+export function FuelRequestTable({
+  requests,
+  title,
+  total,
+  page,
+  totalPages,
+  region,
+  actionType,
+  sortBy: currentSortBy,
+  sortOrder: currentSortOrder,
+  dateFrom,
+  dateTo
+}: FuelRequestTableProps) {
+  const { user } = useUser()
+  const userRole = (user?.publicMetadata?.role as string) || "TECHNICIAN"
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const handleDelete = (id: number) => {
+    startTransition(async () => {
+      try {
+        await deleteFuelRequest(id)
+        toast.success("Fuel request deleted successfully")
+      } catch (error) {
+        toast.error("Failed to delete fuel request")
+        console.error(error)
+      }
+    })
+  }
+
+  const handleApproveToManager = (id: number) => {
+    startTransition(async () => {
+      try {
+        await approveToManager(id)
+        toast.success("Approved and forwarded to Manager")
+      } catch (error) {
+        toast.error("Approval failed")
+      }
+    })
+  }
+
+  const handleApproveToAdmin = (id: number) => {
+    startTransition(async () => {
+      try {
+        await approveToAdmin(id)
+        toast.success("Approved and forwarded to Fuel Dept")
+      } catch (error) {
+        toast.error("Approval failed")
+      }
+    })
+  }
+
+  const handleCreateWorkOrder = (id: number) => {
+    startTransition(async () => {
+      try {
+        await createWorkOrder(id)
+        toast.success("Work Order created successfully")
+      } catch (error) {
+        toast.error("Failed to create Work Order")
+      }
+    })
+  }
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    const isAsc = currentSortBy === field && currentSortOrder === 'asc'
+    params.set('sortBy', field)
+    params.set('sortOrder', isAsc ? 'desc' : 'asc')
+    params.set('page', '1')
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  const SortableHeader = ({ field, label, align = 'left' }: { field: string, label: string, align?: 'left' | 'right' | 'center' }) => (
+    <TableHead className="p-0 align-middle bg-white">
+      <TableColumnHeader
+        label={label}
+        sortActive={currentSortBy === field}
+        onSort={() => handleSort(field)}
+        className={cn(
+          "px-4 text-slate-900 font-bold",
+          align === 'right' ? 'justify-end text-right' : align === 'center' ? 'justify-center text-center' : 'justify-start text-left'
+        )}
+      />
+    </TableHead>
+  )
+
+  return (
+    <div className="overflow-x-auto mb-10 custom-scrollbar pb-2">
+      <div className="min-w-[1400px] rounded-xl border border-slate-400 bg-white shadow-sm overflow-hidden">
+        <Table>
+          <TableHeader className="bg-white border-b border-gray-200 sticky top-0 z-10">
+            <TableRow className="hover:bg-transparent bg-gray-50/50 h-8">
+              <SortableHeader field="siteId" label="Site ID" />
+              <SortableHeader field="siteName" label="Site Name" />
+              <SortableHeader field="createdAt" label="Date" />
+              <SortableHeader field="workOrderNumber" label="Ref / Order #" />
+              <SortableHeader field="priority" label="Priority" />
+              <SortableHeader field="literRequired" label="Req (L)" align="right" />
+              <SortableHeader field="status" label="Status" align="center" />
+              <TableHead className="p-0 align-middle bg-white ">
+                <TableColumnHeader label="Actions" className="justify-end px-4 text-slate-900 font-bold" />
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {requests.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="h-24 text-center text-gray-400 italic">
+                  No {title.toLowerCase()} found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              requests.map((req) => (
+                <TableRow key={req.id} className="border-b-gray-50 hover:bg-gray-50/50 transition-colors h-[22px]">
+                  <TableCell className="px-4">
+                    <span className="text-slate-700 font-medium px-1.5 py-0 rounded leading-none">
+                      {req.site.siteId}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-gray-900 px-4 leading-none">{req.site.name}</TableCell>
+                  <TableCell className="text-gray-500 whitespace-nowrap px-4 leading-none">
+                    {new Date(req.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </TableCell>
+                  <TableCell className="text-gray-500 font-mono px-4 leading-none">
+                    {req.workOrderNumber ? req.workOrderNumber : (req.workRequestNumber || 'N/A')}
+                  </TableCell>
+                  <TableCell className="px-4 leading-none">
+                    <span className={`inline-flex items-center rounded px-1.5 py-0 font-medium uppercase tracking-tight ${
+                      req.priority === 'EMERGENCY' ? 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20' :
+                      req.priority === 'URGENT' ? 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/20' :
+                      req.priority === 'HIGH' ? 'bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/20' :
+                      'bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-600/10'
+                    }`}>
+                      {req.priority || 'NORMAL'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-gray-900 text-right tabular-nums px-4 leading-none">
+                    {req.literRequired ? req.literRequired.toLocaleString() : '-'}
+                  </TableCell>
+                  <TableCell className="text-center text-[11px] text-gray-500 font-medium uppercase tracking-tight px-4 leading-none">
+                    {req.status.replace(/_/g, ' ')}
+                  </TableCell>
+                  <TableCell className="text-right px-4 leading-none">
+                    <div className="flex justify-end items-center gap-2 pr-2">
+                      {actionType === 'supervisor' && req.status === 'PENDING_SUPERVISOR' && (
+                        <Button size="sm" onClick={() => handleApproveToManager(req.id)} disabled={isPending}
+                          className="h-7 px-3 text-[11px] bg-lime-600 hover:bg-lime-700 text-white font-semibold uppercase tracking-tight shadow-none">
+                          Approve
+                        </Button>
+                      )}
+                      {actionType === 'supervisor' && req.status === 'PENDING_MANAGER' && (
+                        <Button size="sm" onClick={() => handleApproveToAdmin(req.id)} disabled={isPending}
+                          className="h-7 px-3 text-[11px] bg-lime-600 hover:bg-lime-700 text-white font-semibold uppercase tracking-tight shadow-none">
+                          Approve
+                        </Button>
+                      )}
+                      {actionType === 'admin' && req.status === 'PENDING_ADMIN' && (
+                        <Button size="sm" onClick={() => handleCreateWorkOrder(req.id)} disabled={isPending}
+                          className="h-7 px-3 text-[11px] bg-lime-600 hover:bg-lime-700 text-white font-semibold uppercase tracking-tight shadow-none">
+                          Create WO
+                        </Button>
+                      )}
+                      {(req.status === 'APPROVED_FOR_FUEL' || req.status === 'FUNDS_RELEASED') && (userRole === 'TECHNICIAN' || userRole === 'ADMIN') && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => router.push(`/dashboard/fuel-delivery?siteId=${req.siteId}&requestId=${req.id}&workOrder=${req.workOrderNumber}&open=true`)}
+                          disabled={isPending}
+                          className="h-7 px-3 text-[11px] bg-blue-600 hover:bg-blue-700 text-white font-semibold uppercase tracking-tight shadow-none"
+                        >
+                          Deliver
+                        </Button>
+                      )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon"
+                            className="h-7 w-7 text-red-500 hover:bg-red-50 hover:text-red-700"
+                            disabled={isPending}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-white">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete this fuel request record.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(req.id)}
+                              className="bg-red-600 hover:bg-red-700 text-white">
+                              Yes, delete it
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+
+        <div className="flex items-center justify-between border-t border-slate-400 bg-white px-4 py-1.5 sm:px-6">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center text-gray-500 gap-4 uppercase tracking-tighter text-sm font-medium">
+              <span className="hidden sm:inline-block font-bold">{total} total requests</span>
+              <span className="hidden sm:inline-block">|</span>
+              <div className="flex items-center gap-2">
+                <span>Go to:</span>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  const p = formData.get("page");
+                  if (p) {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("page", p.toString());
+                    router.push(`${pathname}?${params.toString()}`);
+                  }
+                }} className="flex items-center gap-2">
+                  <Input
+                    name="page"
+                    type="number"
+                    defaultValue={page}
+                    className="h-7 w-12 text-center font-bold bg-gray-50 border-gray-200 p-0 focus-visible:ring-1 focus-visible:ring-lime-500 shadow-none"
+                  />
+                </form>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded border border-slate-300">
+              <span className="text-slate-500 text-[12px] font-bold uppercase tracking-tight">From:</span>
+              <input
+                type="date"
+                defaultValue={dateFrom}
+                className="h-8 w-[130px] bg-white border border-slate-200 rounded p-1 text-[12px] font-medium focus:ring-blue-500 outline-hidden"
+                onChange={(e) => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  if (e.target.value) params.set("from", e.target.value);
+                  else params.delete("from");
+                  params.set("page", "1");
+                  router.push(`${pathname}?${params.toString()}`);
+                }}
+              />
+              <span className="text-slate-500 text-[12px] font-bold uppercase tracking-tight ml-1">To:</span>
+              <input
+                type="date"
+                defaultValue={dateTo}
+                className="h-8 w-[130px] bg-white border border-slate-200 rounded p-1 text-[12px] font-medium focus:ring-blue-500 outline-hidden"
+                onChange={(e) => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  if (e.target.value) params.set("to", e.target.value);
+                  else params.delete("to");
+                  params.set("page", "1");
+                  router.push(`${pathname}?${params.toString()}`);
+                }}
+              />
+            </div>
+          </div>
+
+          <Pagination totalPages={totalPages} currentPage={page} />
+        </div>
+      </div>
+    </div>
+  )
+}
