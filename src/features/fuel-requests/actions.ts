@@ -212,12 +212,25 @@ export async function deleteFuelDelivery(id: number) {
 export async function updateFuelDelivery(id: number, data: Partial<FuelDeliveryData>) {
   await requireRole(["ADMIN", "MANAGER", "SUPERVISOR"])
 
+  const existing = await prisma.fuelRefill.findUnique({
+    where: { id },
+    select: { beforeLevel: true, fuelDelivered: true }
+  });
+
+  if (!existing) {
+    throw new Error("Refill record not found");
+  }
+
+  const beforeLevel = data.fuelBeforeRefuel !== undefined ? data.fuelBeforeRefuel : existing.beforeLevel;
+  const fuelDelivered = data.actualRefueled !== undefined ? data.actualRefueled : existing.fuelDelivered;
+  const afterLevel = beforeLevel + fuelDelivered;
+
   await prisma.fuelRefill.update({
     where: { id },
     data: {
       ...(data.actualRefueled !== undefined && { fuelDelivered: data.actualRefueled }),
       ...(data.fuelBeforeRefuel !== undefined && { beforeLevel: data.fuelBeforeRefuel }),
-      ...(data.actualRefueled !== undefined && data.fuelBeforeRefuel !== undefined && { afterLevel: data.fuelBeforeRefuel + data.actualRefueled }),
+      afterLevel,
       ...(data.begRunningHour !== undefined && { beforeHours: data.begRunningHour }),
       ...(data.endRunningHour !== undefined && { afterHours: data.endRunningHour }),
       ...(data.driverName !== undefined && { driverName: data.driverName }),

@@ -14,7 +14,13 @@ export async function createGenerator(data: {
 }) {
   await requireRole(["ADMIN", "MANAGER"])
 
-  const count = await prisma.generator.count({ where: { siteId: parseInt(data.siteId) } })
+  const siteId = parseInt(data.siteId)
+  const existing = await prisma.generator.findUnique({ where: { siteId } })
+  if (existing) {
+    throw new Error(`A generator is already registered for Site ID ${data.siteId}`)
+  }
+
+  const count = await prisma.generator.count({ where: { siteId } })
   const genId = `GEN-${data.siteId}-${count + 1}`
 
   const generator = await prisma.generator.create({

@@ -115,7 +115,7 @@ export async function getFuelJournalData(
     const prevRefill = allRefills.find(r => r.refillDate < refill.refillDate);
 
     const currHr = refill.afterHours || 0;
-    const prevHr = prevRefill ? prevRefill.beforeHours : 0;
+    const prevHr = refill.beforeHours || 0;
     const runningHrs = currHr - prevHr;
 
     const actualRefueled = refill.fuelDelivered || 0;
@@ -189,7 +189,7 @@ export async function getFuelJournalExportData(
     const prevRefill = allRefills.find(r => r.refillDate < refill.refillDate);
 
     const currHr = refill.afterHours || 0;
-    const prevHr = prevRefill ? prevRefill.beforeHours : 0;
+    const prevHr = refill.beforeHours || 0;
     const runningHrs = currHr - prevHr;
 
     const actualRefueled = refill.fuelDelivered || 0;

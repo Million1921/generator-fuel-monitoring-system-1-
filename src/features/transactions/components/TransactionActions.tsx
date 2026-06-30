@@ -11,9 +11,16 @@ import { format } from "date-fns"
 import { toast } from "sonner"
 import { deleteTransaction, updateTransaction } from "../actions"
 import { useRouter } from "next/navigation"
+import { useUser } from "@clerk/nextjs"
 
 export function TransactionActions({ transaction }: { transaction: any }) {
   const router = useRouter()
+  const { user } = useUser()
+  const userRole = (user?.publicMetadata?.role as string) || "TECHNICIAN"
+
+  const isFinanceOrAdmin = userRole === "ADMIN" || userRole === "MANAGER" || userRole === "FINANCE"
+  const canDeliver = userRole === "ADMIN" || userRole === "MANAGER" || userRole === "SUPERVISOR" || userRole === "TECHNICIAN"
+
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -73,17 +80,27 @@ export function TransactionActions({ transaction }: { transaction: any }) {
           <DropdownMenuItem onClick={() => setIsViewOpen(true)} className="cursor-pointer">
             <Eye className="mr-2 h-4 w-4 text-lime-600" /> View Details
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setIsEditOpen(true)} className="cursor-pointer">
-            <Edit2 className="mr-2 h-4 w-4 text-orange-500" /> Edit Record
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => router.push(`/dashboard/fuel-delivery/create?tx=${transaction.id}`)} className="cursor-pointer bg-lime-50 text-lime-700 hover:bg-lime-100 focus:text-lime-800">
-            <Fuel className="mr-2 h-4 w-4" /> Create Delivery
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleDelete} className="cursor-pointer text-red-600 focus:text-red-600">
-            <Trash2 className="mr-2 h-4 w-4" /> Delete
-          </DropdownMenuItem>
+          {isFinanceOrAdmin && (
+            <DropdownMenuItem onClick={() => setIsEditOpen(true)} className="cursor-pointer">
+              <Edit2 className="mr-2 h-4 w-4 text-orange-500" /> Edit Record
+            </DropdownMenuItem>
+          )}
+          {canDeliver && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push(`/dashboard/fuel-delivery/create?tx=${transaction.id}`)} className="cursor-pointer bg-lime-50 text-lime-700 hover:bg-lime-100 focus:text-lime-800">
+                <Fuel className="mr-2 h-4 w-4" /> Create Delivery
+              </DropdownMenuItem>
+            </>
+          )}
+          {isFinanceOrAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleDelete} className="cursor-pointer text-red-600 focus:text-red-600">
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
