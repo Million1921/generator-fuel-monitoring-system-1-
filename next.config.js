@@ -1,10 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Explicitly set the Turbopack root to the project directory (where package.json lives)
-  turboPack: {
-    root: __dirname,
-  },
-  // You can add other Next.js options here as needed
+  // Add any needed Next.js options here
+  // For now we keep it minimal to avoid invalid keys.
 };
 
 module.exports = nextConfig;
